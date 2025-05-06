@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./UpdateLead.css";
 
@@ -20,21 +20,25 @@ const UpdateLead = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [userData, setUserData] = useState({ user_id: null, user_name: "" });
-  const [userList, setUserList] = useState([]);
-  const [showTransfer, setShowTransfer] = useState(false);
-  const [transferUserId, setTransferUserId] = useState("");
-  const [transferError, setTransferError] = useState("");
-  const [transferLoading, setTransferLoading] = useState(false);
+  const [activeUsers, setActiveUsers] = useState([]);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState("");
 
-  const fetchUsers = async () => {
-    try {
-      const response = await api.get('/api/users/all');
-      setUserList(response.data || []);
-    } catch (err) {
-      console.error("Error fetching users:", err);
-      setUserList([]);
+  // Effect to clear success message after 3 seconds
+  useEffect(() => {
+    let timeoutId;
+    if (submitSuccess) {
+      timeoutId = setTimeout(() => {
+        setSubmitSuccess("");
+      }, 3000);
     }
-  };
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [submitSuccess]);
 
   const handleCheckStatus = async () => {
     if (!leadId) {
@@ -57,7 +61,7 @@ const UpdateLead = () => {
       setMasterStatus(response.data.masterStatus);
       const userData = response.data.userData || { user_id: null, user_name: "" };
       setUserData(userData);
-      fetchUsers();
+      setActiveUsers(response.data.activeUsers || []);
     } catch (err) {
       console.error("Error occurred:", err);
       console.error("Error response:", err.response);
@@ -73,29 +77,50 @@ const UpdateLead = () => {
 
   const handleUserChange = (e) => {
     const selectedId = Number(e.target.value);
-    const selectedUser = userList.find(u => u.user_id === selectedId);
+    const selectedUser = activeUsers.find(u => u.user_id === selectedId);
     setUserData(selectedUser || { user_id: null, user_name: "" });
   };
 
-  const handleTransferFetch = async () => {
-    setTransferError("");
-    setTransferLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!leadId || !status || !userData.user_id || !remarks) {
+      setSubmitError("Please fill in all required fields");
+      return;
+    }
+
+    setSubmitLoading(true);
+    setSubmitError("");
+    setSubmitSuccess("");
+
     try {
-      const response = await api.get('/api/users/getUserByUserId', {
-        params: { user_id: transferUserId }
-      });
-      const user = response.data;
-      if (user && user.user_id) {
-        setUserData(user);
-        setShowTransfer(false);
-        setTransferUserId("");
-      } else {
-        setTransferError("User not found");
+      const selectedStatus = masterStatus.find(s => s.status_name === status);
+      if (!selectedStatus) {
+        throw new Error("Invalid status selected");
       }
+
+      const payload = {
+        lead_id: Number(leadId),
+        lead_status_id: selectedStatus.status_id,
+        user_id: userData.user_id,
+        remark: remarks // Always include remarks as it's now mandatory
+      };
+
+      const response = await api.post('/api/leads/updateLeadStatus', payload);
+      setSubmitSuccess("Lead status updated successfully");
+      
+      // Reset form
+      setLeadId("");
+      setStatus("");
+      setRemarks("");
+      setUserData({ user_id: null, user_name: "" });
+      setMasterStatus([]);
+      setActiveUsers([]);
     } catch (err) {
-      setTransferError("User not found");
+      console.error("Error updating lead status:", err);
+      setSubmitError(err.response?.data?.message || "Failed to update lead status");
     } finally {
-      setTransferLoading(false);
+      setSubmitLoading(false);
     }
   };
 
@@ -105,7 +130,7 @@ const UpdateLead = () => {
         <i className="fa-solid fa-pen-to-square"></i>
         <span>Update Lead Status</span>
       </div>
-      <form className="update-lead-form" autoComplete="off">
+      <form className="update-lead-form" autoComplete="off" onSubmit={handleSubmit}>
         <div className="update-lead-field">
           <label htmlFor="lead_id">
             <i className="fa-solid fa-id-badge"></i> Lead ID <span className="required">*</span>
@@ -120,8 +145,8 @@ const UpdateLead = () => {
               required
               placeholder="Enter Lead ID"
             />
-            <button 
-              type="button" 
+            <button
+              type="button"
               className="btn check"
               onClick={handleCheckStatus}
               disabled={loading}
@@ -134,50 +159,24 @@ const UpdateLead = () => {
         </div>
         <div className="update-lead-field">
           <label htmlFor="user_id">
-            <i className="fa-solid fa-user"></i> Assigned User
+            <i className="fa-solid fa-user"></i> Assigned User <span className="required">*</span>
           </label>
-          <div className="update-lead-input-row">
-            <input
-              type="text"
-              id="user_id"
-              name="user_id"
-              value={userData.user_id ? `${userData.user_id} - ${userData.user_name}` : "Not Assigned"}
-              readOnly
-              className="user-id-input"
-              placeholder="User ID will be auto-filled"
-            />
-            <div className="btn check" style={{ visibility: 'hidden' }}>
-              <i className="fa-solid fa-magnifying-glass"></i> CHECK STATUS
-            </div>
-            <button
-              type="button"
-              className="btn check"
-              style={{ marginLeft: '10px' }}
-              onClick={() => setShowTransfer(v => !v)}
-            >
-              <i className="fa-solid fa-right-left"></i> TRANSFER LEAD
-            </button>
-          </div>
-          {showTransfer && (
-            <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <input
-                type="number"
-                placeholder="Enter User ID"
-                value={transferUserId}
-                onChange={e => setTransferUserId(e.target.value)}
-                style={{ width: '160px', height: '40px', borderRadius: '5px', border: '1.5px solid #e0e0e0', padding: '0 12px', fontSize: '15px' }}
-              />
-              <button
-                type="button"
-                className="btn check"
-                onClick={handleTransferFetch}
-                disabled={transferLoading || !transferUserId}
-              >
-                {transferLoading ? 'Fetching...' : 'Fetch User'}
-              </button>
-              {transferError && <span className="error-message">{transferError}</span>}
-            </div>
-          )}
+          <select
+            id="user_id"
+            name="user_id"
+            value={userData.user_id || ""}
+            onChange={handleUserChange}
+            disabled={!activeUsers.length}
+            className="user-select"
+            required
+          >
+            <option value="" disabled>SELECT USER</option>
+            {activeUsers.map((user) => (
+              <option key={user.user_id} value={user.user_id}>
+                {user.user_id} - {user.user_name || "Unnamed User"}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="update-lead-field">
           <label htmlFor="status">
@@ -189,6 +188,7 @@ const UpdateLead = () => {
             required
             value={status}
             onChange={e => setStatus(e.target.value)}
+            disabled={!masterStatus.length}
           >
             <option value="" disabled>SELECT</option>
             {masterStatus.map((status) => (
@@ -208,16 +208,19 @@ const UpdateLead = () => {
             rows="5"
             value={remarks}
             onChange={e => setRemarks(e.target.value)}
-            required
             placeholder="Enter remarks here..."
+            required
           ></textarea>
         </div>
+        {submitError && <div className="error-message">{submitError}</div>}
+        {submitSuccess && <div className="success-message">{submitSuccess}</div>}
         <button
           type="submit"
           className="btn update"
-          disabled={!status}
+          disabled={!status || submitLoading || !remarks}
         >
-          <i className="fa-solid fa-paper-plane"></i> UPDATE STATUS
+          <i className="fa-solid fa-paper-plane"></i> 
+          {submitLoading ? "UPDATING..." : "UPDATE STATUS"}
         </button>
       </form>
     </div>
