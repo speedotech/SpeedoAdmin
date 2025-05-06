@@ -4,6 +4,7 @@ import Layout from './Component/Layout';
 import Index from './Component/Index.jsx';
 import UpdateLead from './Component/UpdateLead.jsx';
 import BREBypass from './Component/BREBypass.jsx';
+import ComingSoon from './Component/ComingSoon.jsx';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
           <Route index element={<Index />} />
           <Route path="update-lead" element={<UpdateLead />} />
           <Route path="bre-bypass" element={<BREBypass />} />
+          <Route path="*" element={<ComingSoon />} />
         </Route>
       </Routes>
     </Router>
