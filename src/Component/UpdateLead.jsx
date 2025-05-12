@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./UpdateLead.css";
+import baseURL from "../Utils/api";
 
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: 'http://localhost:3000',
+  baseURL: baseURL.API_BASEPATH,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -50,7 +51,7 @@ const UpdateLead = () => {
     setError("");
     try {
       console.log("Making request with lead_id:", leadId);
-      const response = await api.get('/api/leads/getLeadStatusByLeadId', {
+      const response = await api.get('/leads/getLeadStatusByLeadId', {
         params: {
           lead_id: leadId
         }
@@ -106,7 +107,7 @@ const UpdateLead = () => {
         remark: remarks // Always include remarks as it's now mandatory
       };
 
-      const response = await api.post('/api/leads/updateLeadStatus', payload);
+      const response = await api.post('/leads/updateLeadStatus', payload);
       setSubmitSuccess("Lead status updated successfully");
       
       // Reset form
@@ -173,7 +174,7 @@ const UpdateLead = () => {
             <option value="" disabled>SELECT USER</option>
             {activeUsers.map((user) => (
               <option key={user.user_id} value={user.user_id}>
-                {user.user_id} - {user.user_name || "Unnamed User"}
+                  {user.user_id} - {user.name || "Unnamed User"}
               </option>
             ))}
           </select>
